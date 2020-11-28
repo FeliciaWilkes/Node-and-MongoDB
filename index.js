@@ -1,7 +1,6 @@
 //Connecting to MongoDB
 const MongoClient = require('mongodb').MongoClient;
-//To use strict assertion mode:
-const assert = require('assert').strict;
+
 const dboper = require('./operations');
 
 //Create a URL to the MongoDB server: 27017 is the default port.
@@ -12,56 +11,59 @@ const dbname = 'nucampsite';
 
 //connect() method to get the reference to the MongoDB instance client. 
 MongoClient.connect(url, {
-    useUnifiedTopology: true
-}, (err, client) => {
+        useUnifiedTopology: true
+    }).then(client => {
 
-    assert.strictEqual(err, null);
 
-    console.log('Connected correctly to server');
+        console.log('Connected correctly to server');
 
-    //select a database using the client.db() method. 
-    const db = client.db(dbname);
+        //select a database using the client.db() method. 
+        const db = client.db(dbname);
 
-    //delete collection dropCollection()
-    db.dropCollection('campsites', (err, result) => {
-        assert.strictEqual(err, null);
-        console.log('Dropped Collection:', result);
+        //delete collection dropCollection()
+        db.dropCollection('campsites').then(result => {
+                console.log('Dropped Collection:', result);
+            })
+            .catch(err => console.log('No collection to drop'));
+
 
         // insert data into a document
-        dboper.insertDocument(db, { name: "Breadcrumb Trail Campground", description: "Test" },
-            'campsites', result => {
+        dboper.insertDocument(db, { name: "Breadcrumb Trail Campground", description: "Test" }, 'campsites')
+            .then(result => {
                 console.log('Insert Document:', result.ops);
 
-                //find all documents by the name campsites
-                dboper.findDocuments(db, 'campsites', docs => {
-                    console.log('Found Documents:', docs);
+                return dboper.findDocuments(db, 'campsites');
+            })
+            //find all documents by the name campsites
+            .then(docs => {
+                console.log('Found Documents:', docs);
+                //update an existing document
+                return dboper.updateDocument(db, { name: "Breadcrumb Trail Campground" }, { description: "Updated Test Description" }, 'campsites');
+            })
+            .then(result => {
+                console.log('Updated Document Count:', result.result.nModified);
+                //find documents campsites
+                return dboper.findDocuments(db, 'campsites');
+            })
 
-                    //update an existing document
-                    dboper.updateDocument(db, { name: "Breadcrumb Trail Campground" }, { description: "Updated Test Description" }, 'campsites',
-                        result => {
-                            console.log('Updated Document Count:', result.result.nModified);
+        .then(docs => {
+                console.log('Found Documents:', docs);
+                //remove named document
+                return dboper.removeDocument(db, { name: "Breadcrumb Trail Campground" },
+                    'campsites');
+            })
+            .then(result => {
+                console.log('Deleted Document Count:', result.deletedCount);
 
-                            //find documents campsites
-                            dboper.findDocuments(db, 'campsites', docs => {
-                                console.log('Found Documents:', docs);
-
-                                //remove named document
-                                dboper.removeDocument(db, { name: "Breadcrumb Trail Campground" },
-                                    'campsites', result => {
-                                        console.log('Deleted Document Count:', result.deletedCount);
-
-                                        //closing the connection
-                                        client.close();
-                                    }
-                                );
-                            });
-                        }
-                    );
-                });
+                return client.close();
+            })
+            .catch(err => {
+                console.log(err);
+                client.close();
             });
-    });
-});
+    })
+    .catch(err => console.log(err));
 /* Resources:
- *  https://flaviocopes.com/node-mongodb/
- *  https://mongodb.github.io/node-mongodb-native/3.4/api/Collection.html#updateOne
+ *  http://callbackhell.com/
+ *  https://medium.com/@js_tut/the-great-escape-from-callback-hell-3006fa2c82e
  */
